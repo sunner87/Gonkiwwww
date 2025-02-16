@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Гонки</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #87CEEB; /* Голубое небо */
+            font-family: Arial, sans-serif;
+        }
+
+        #game {
+            position: relative;
+            width: 400px; /* Шире для дополнительных полос */
+            height: 600px;
+            background-color: #555;
+            border: 2px solid #fff;
+            overflow: hidden;
+        }
+
+        /* Дорога с разделительной полосой */
+        #road {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            width: 10px;
+            height: 100%;
+            background: repeating-linear-gradient(
+                to bottom,
+                white 0,
+                white 20px,
+                transparent 20px,
+                transparent 40px
+            );
+            transform: translateX(-50%);
+            animation: moveRoad 2s linear infinite;
+        }
+
+        @keyframes moveRoad {
+            from {
+                top: 0;
+            }
+            to {
+                top: 40px;
+            }
+        }
+
+        /* Дополнительные полосы */
+        #road::before,
+        #road::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            width: 10px;
+            height: 100%;
+            background: repeating-linear-gradient(
+                to bottom,
+                white 0,
+                white 20px,
+                transparent 20px,
+                transparent 40px
+            );
+        }
+
+        #road::before {
+            left: -100px; /* Левая дополнительная полоса */
+        }
+
+        #road::after {
+            right: -100px; /* Правая дополнительная полоса */
+        }
+
+        /* Обочина */
+        #road::before,
+        #road::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            width: 100px;
+            height: 100%;
+            background-color: #444;
+        }
+
+        #road::before {
+            left: -160px; /* Левая обочина */
+        }
+
+        #road::after {
+            right: -160px; /* Правая обочина */
+        }
+
+        /* Машинка игрока */
+        #player {
+            position: absolute;
+            bottom: 20px;
+            left: 175px; /* Центр для трёх полос */
+            width: 50px;
+            height: 100px;
+            background: linear-gradient(to bottom, blue 50%, black 50%);
+            border-radius: 10px 10px 0 0;
+            box-shadow: 0 0 10px rgba(0, 0, 255, 0.5);
+            z-index: 2;
+            transition: left 0.2s ease; /* Плавное перестроение */
+        }
+
+        #player::before {
+            content: '';
+            position: absolute;
+            top: 20px;
+            left: 10px;
+            width: 30px;
+            height: 20px;
+            background-color: rgba(255, 255, 255, 0.5);
+            border-radius: 5px;
+        }
+
+        #player::after {
+            content: '';
+            position: absolute;
+            top: 20px;
+            right: 10px;
+            width: 30px;
+            height: 20px;
+            background-color: rgba(255, 255, 255, 0.5);
+            border-radius: 5px;
+        }
+
+        /* Препятствия (разные машинки) */
+        .obstacle {
+            position: absolute;
+            width: 50px;
+            height: 100px;
+            border-radius: 10px 10px 0 0;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            z-index: 1;
+        }
+
+        .obstacle::before,
+        .obstacle::after {
+            content: '';
+            position: absolute;
+            top: 20px;
+            width: 30px;
+            height: 20px;
+            background-color: rgba(255, 255, 255, 0.5);
+            border-radius: 5px;
+        }
+
+        .obstacle::before {
+            left: 10px;
+        }
+
+        .obstacle::after {
+            right: 10px;
+        }
+
+        .obstacle.red {
+            background: linear-gradient(to bottom, red 50%, darkred 50%);
+        }
+
+        .obstacle.green {
+            background: linear-gradient(to bottom, green 50%, darkgreen 50%);
+        }
+
+        .obstacle.yellow {
+            background: linear-gradient(to bottom, yellow 50%, goldenrod 50%);
+        }
+
+        /* Солнышко */
+        #sun {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            background-color: #FFD700;
+            border-radius: 50%;
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.8);
+        }
+
+        /* Дизайн очков */
+        #score {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 5px 10px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            z-index: 3;
+        }
+
+        /* Сообщение о конце игры */
+        #game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 30px;
+            display: none;
+            text-align: center;
+            background-color: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            z-index: 3;
+        }
+
+        #restart-button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+
+        #restart-button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <div id="game">
+        <div id="road"></div>
+        <div id="player"></div>
+        <div id="sun"></div>
+        <div id="score">Очки: 0</div>
+        <div id="game-over">
+            Игра окончена!
+            <button id="restart-button">Рестарт</button>
+        </div>
+    </div>
+
+    <script>
+        const game = document.getElementById('game');
+        const player = document.getElementById('player');
+        const scoreDisplay = document.getElementById('score');
+        const gameOverDisplay = document.getElementById('game-over');
+        const restartButton = document.getElementById('restart-button');
+
+        let playerX = 175; // Начальная позиция игрока по X (центр)
+        let score = 0;
+        let gameOver = false;
+        let obstacles = [];
+
+        // Движение игрока
+        document.addEventListener('keydown', (e) => {
+            if (gameOver) return;
+
+            if (e.key === 'ArrowLeft' && playerX > 75) {
+                playerX -= 30; // Перестроение на одну полосу влево
+            } else if (e.key === 'ArrowRight' && playerX < 275) {
+                playerX += 30; // Перестроение на одну полосу вправо
+            }
+            player.style.left = `${playerX}px`;
+        });
+
+        // Создание препятствий (разные машинки)
+        function createObstacle() {
+            if (gameOver) return;
+
+            const obstacle = document.createElement('div');
+            obstacle.classList.add('obstacle');
+
+            // Случайный выбор цвета машинки
+            const colors = ['red', 'green', 'yellow'];
+            const randomColor = colors[Math.floor(Math.random() * colors.length)];
+            obstacle.classList.add(randomColor);
+
+            // Случайная полоса (0, 1, 2)
+            const lanes = [75, 175, 275];
+            const randomLane = lanes[Math.floor(Math.random() * lanes.length)];
+            obstacle.style.left = `${randomLane}px`;
+
+            obstacle.style.top = `-100px`; // Начинает сверху
+            game.appendChild(obstacle);
+            obstacles.push(obstacle);
+        }
+
+        // Движение препятствий
+        function moveObstacles() {
+            if (gameOver) return;
+
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                const obstacle = obstacles[i];
+                const obstacleY = parseFloat(obstacle.style.top);
+
+                if (obstacleY > 600) {
+                    // Препятствие ушло за пределы экрана
+                    game.removeChild(obstacle);
+                    obstacles.splice(i, 1);
+                    score++;
+                    scoreDisplay.textContent = `Очки: ${score}`;
+                } else {
+                    // Двигаем препятствие вниз
+                    obstacle.style.top = `${obstacleY + 2}px`;
+                }
+
+                // Проверка столкновения
+                if (
+                    playerX < parseFloat(obstacle.style.left) + 50 &&
+                    playerX + 50 > parseFloat(obstacle.style.left) &&
+                    580 < obstacleY + 100
+                ) {
+                    endGame();
+                }
+            }
+        }
+
+        // Конец игры
+        function endGame() {
+            gameOver = true;
+            gameOverDisplay.style.display = 'block';
+        }
+
+        // Рестарт игры
+        restartButton.addEventListener('click', () => {
+            // Сброс состояния игры
+            gameOver = false;
+            score = 0;
+            scoreDisplay.textContent = `Очки: ${score}`;
+            gameOverDisplay.style.display = 'none';
+
+            // Удаление всех препятствий
+            obstacles.forEach(obstacle => game.removeChild(obstacle));
+            obstacles = [];
+
+            // Сброс позиции игрока
+            playerX = 175;
+            player.style.left = `${playerX}px`;
+
+            // Запуск игрового цикла
+            gameLoop();
+        });
+
+        // Игровой цикл
+        function gameLoop() {
+            if (!gameOver) {
+                moveObstacles();
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        // Запуск игры
+        setInterval(createObstacle, 1000); // Создаем препятствия каждую секунду
+        gameLoop();
+    </script>
+</body><!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Гонки</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #87CEEB; /* Голубое небо */
+            font-family: Arial, sans-serif;
+        }
+
+        #game {
+            position: relative;
+            width: 400px; /* Шире для дополнительных полос */
+            height: 600px;
+            background-color: #555;
+            border: 2px solid #fff;
+            overflow: hidden;
+        }
+
+        /* Дорога с разделительной полосой */
+        #road {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            width: 10px;
+            height: 100%;
+            background: repeating-linear-gradient(
+                to bottom,
+                white 0,
+                white 20px,
+                transparent 20px,
+                transparent 40px
+            );
+            transform: translateX(-50%);
+            animation: moveRoad 2s linear infinite;
+        }
+
+        @keyframes moveRoad {
+            from {
+                top: 0;
+            }
+            to {
+                top: 40px;
+            }
+        }
+
+        /* Дополнительные полосы */
+        #road::before,
+        #road::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            width: 10px;
+            height: 100%;
+            background: repeating-linear-gradient(
+                to bottom,
+                white 0,
+                white 20px,
+                transparent 20px,
+                transparent 40px
+            );
+        }
+
+        #road::before {
+            left: -100px; /* Левая дополнительная полоса */
+        }
+
+        #road::after {
+            right: -100px; /* Правая дополнительная полоса */
+        }
+
+        /* Обочина */
+        #road::before,
+        #road::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            width: 100px;
+            height: 100%;
+            background-color: #444;
+        }
+
+        #road::before {
+            left: -160px; /* Левая обочина */
+        }
+
+        #road::after {
+            right: -160px; /* Правая обочина */
+        }
+
+        /* Машинка игрока */
+        #player {
+            position: absolute;
+            bottom: 20px;
+            left: 175px; /* Центр для трёх полос */
+            width: 50px;
+            height: 100px;
+            background: linear-gradient(to bottom, blue 50%, black 50%);
+            border-radius: 10px 10px 0 0;
+            box-shadow: 0 0 10px rgba(0, 0, 255, 0.5);
+            z-index: 2;
+            transition: left 0.2s ease; /* Плавное перестроение */
+        }
+
+        #player::before {
+            content: '';
+            position: absolute;
+            top: 20px;
+            left: 10px;
+            width: 30px;
+            height: 20px;
+            background-color: rgba(255, 255, 255, 0.5);
+            border-radius: 5px;
+        }
+
+        #player::after {
+            content: '';
+            position: absolute;
+            top: 20px;
+            right: 10px;
+            width: 30px;
+            height: 20px;
+            background-color: rgba(255, 255, 255, 0.5);
+            border-radius: 5px;
+        }
+
+        /* Препятствия (разные машинки) */
+        .obstacle {
+            position: absolute;
+            width: 50px;
+            height: 100px;
+            border-radius: 10px 10px 0 0;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            z-index: 1;
+        }
+
+        .obstacle::before,
+        .obstacle::after {
+            content: '';
+            position: absolute;
+            top: 20px;
+            width: 30px;
+            height: 20px;
+            background-color: rgba(255, 255, 255, 0.5);
+            border-radius: 5px;
+        }
+
+        .obstacle::before {
+            left: 10px;
+        }
+
+        .obstacle::after {
+            right: 10px;
+        }
+
+        .obstacle.red {
+            background: linear-gradient(to bottom, red 50%, darkred 50%);
+        }
+
+        .obstacle.green {
+            background: linear-gradient(to bottom, green 50%, darkgreen 50%);
+        }
+
+        .obstacle.yellow {
+            background: linear-gradient(to bottom, yellow 50%, goldenrod 50%);
+        }
+
+        /* Солнышко */
+        #sun {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            background-color: #FFD700;
+            border-radius: 50%;
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.8);
+        }
+
+        /* Дизайн очков */
+        #score {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 5px 10px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            z-index: 3;
+        }
+
+        /* Сообщение о конце игры */
+        #game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 30px;
+            display: none;
+            text-align: center;
+            background-color: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            z-index: 3;
+        }
+
+        #restart-button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+
+        #restart-button:hover {
+            background-color: #45a049;
+        }
+
+        /* Кнопки управления для телефонов */
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 20px;
+            z-index: 4;
+        }
+
+        .control-button {
+            padding: 15px 25px;
+            font-size: 20px;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+
+        .control-button:hover {
+            background-color: rgba(0, 0, 0, 0.9);
+        }
+
+        /* Скрыть кнопки на компьютерах */
+        @media (min-width: 768px) {
+            #controls {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="game">
+        <div id="road"></div>
+        <div id="player"></div>
+        <div id="sun"></div>
+        <div id="score">Очки: 0</div>
+        <div id="game-over">
+            Игра окончена!
+            <button id="restart-button">Рестарт</button>
+        </div>
+        <!-- Кнопки управления для телефонов -->
+        <div id="controls">
+            <button class="control-button" id="left-button">←</button>
+            <button class="control-button" id="right-button">→</button>
+        </div>
+    </div>
+
+    <script>
+        const game = document.getElementById('game');
+        const player = document.getElementById('player');
+        const scoreDisplay = document.getElementById('score');
+        const gameOverDisplay = document.getElementById('game-over');
+        const restartButton = document.getElementById('restart-button');
+        const leftButton = document.getElementById('left-button');
+        const rightButton = document.getElementById('right-button');
+
+        let playerX = 175; // Начальная позиция игрока по X (центр)
+        let score = 0;
+        let gameOver = false;
+        let obstacles = [];
+
+        // Движение игрока (клавиатура)
+        document.addEventListener('keydown', (e) => {
+            if (gameOver) return;
+
+            if (e.key === 'ArrowLeft' && playerX > 75) {
+                playerX -= 30; // Перестроение на одну полосу влево
+            } else if (e.key === 'ArrowRight' && playerX < 275) {
+                playerX += 30; // Перестроение на одну полосу вправо
+            }
+            player.style.left = `${playerX}px`;
+        });
+
+        // Движение игрока (кнопки для телефонов)
+        leftButton.addEventListener('click', () => {
+            if (gameOver) return;
+            if (playerX > 75) {
+                playerX -= 30;
+                player.style.left = `${playerX}px`;
+            }
+        });
+
+        rightButton.addEventListener('click', () => {
+            if (gameOver) return;
+            if (playerX < 275) {
+                playerX += 30;
+                player.style.left = `${playerX}px`;
+            }
+        });
+
+        // Создание препятствий (разные машинки)
+        function createObstacle() {
+            if (gameOver) return;
+
+            const obstacle = document.createElement('div');
+            obstacle.classList.add('obstacle');
+
+            // Случайный выбор цвета машинки
+            const colors = ['red', 'green', 'yellow'];
+            const randomColor = colors[Math.floor(Math.random() * colors.length)];
+            obstacle.classList.add(randomColor);
+
+            // Случайная полоса (0, 1, 2)
+            const lanes = [75, 175, 275];
+            const randomLane = lanes[Math.floor(Math.random() * lanes.length)];
+            obstacle.style.left = `${randomLane}px`;
+
+            obstacle.style.top = `-100px`; // Начинает сверху
+            game.appendChild(obstacle);
+            obstacles.push(obstacle);
+        }
+
+        // Движение препятствий
+        function moveObstacles() {
+            if (gameOver) return;
+
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                const obstacle = obstacles[i];
+                const obstacleY = parseFloat(obstacle.style.top);
+
+                if (obstacleY > 600) {
+                    // Препятствие ушло за пределы экрана
+                    game.removeChild(obstacle);
+                    obstacles.splice(i, 1);
+                    score++;
+                    scoreDisplay.textContent = `Очки: ${score}`;
+                } else {
+                    // Двигаем препятствие вниз
+                    obstacle.style.top = `${obstacleY + 2}px`;
+                }
+
+                // Проверка столкновения
+                if (
+                    playerX < parseFloat(obstacle.style.left) + 50 &&
+                    playerX + 50 > parseFloat(obstacle.style.left) &&
+                    580 < obstacleY + 100
+                ) {
+                    endGame();
+                }
+            }
+        }
+
+        // Конец игры
+        function endGame() {
+            gameOver = true;
+            gameOverDisplay.style.display = 'block';
+        }
+
+        // Рестарт игры
+        restartButton.addEventListener('click', () => {
+            // Сброс состояния игры
+            gameOver = false;
+            score = 0;
+            scoreDisplay.textContent = `Очки: ${score}`;
+            gameOverDisplay.style.display = 'none';
+
+            // Удаление всех препятствий
+            obstacles.forEach(obstacle => game.removeChild(obstacle));
+            obstacles = [];
+
+            // Сброс позиции игрока
+            playerX = 175;
+            player.style.left = `${playerX}px`;
+
+            // Запуск игрового цикла
+            gameLoop();
+        });
+
+        // Игровой цикл
+        function gameLoop() {
+            if (!gameOver) {
+                moveObstacles();
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        // Запуск игры
+        setInterval(createObstacle, 1000); // Создаем препятствия каждую секунду
+        gameLoop();
+    </script>
+</body>
+</html>
